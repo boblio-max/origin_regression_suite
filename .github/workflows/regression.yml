@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Track origin-dev's latest main every night even with no suite-side pushes.
+    - cron: "0 5 * * *"
 
 jobs:
   conformance:
@@ -12,11 +15,15 @@ jobs:
       - name: Check out this suite
         uses: actions/checkout@v4
 
+      # origin-dev is private: this uses the read-only deploy key whose public
+      # half lives on origin-dev and whose private half is the
+      # ORIGIN_DEV_SSH_KEY secret of this repo.
       - name: Check out origin-dev (system under test)
         uses: actions/checkout@v4
         with:
           repository: boblio-max/origin-dev
           path: origin-dev
+          ssh-key: ${{ secrets.ORIGIN_DEV_SSH_KEY }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
