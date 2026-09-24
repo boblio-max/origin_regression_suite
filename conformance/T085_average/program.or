@@ -1,0 +1,6 @@
+let lst = [10, 20, 30, 40]
+let total = 0
+for x in lst {
+    total = total + x
+}
+print total / len(lst)

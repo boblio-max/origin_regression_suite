@@ -1,0 +1,6 @@
+let first = "Ada"
+let last = "Lovelace"
+let full = first + " " + last
+print full
+print len(full)
+print "Hi, " + full + "!"

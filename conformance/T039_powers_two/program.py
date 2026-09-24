@@ -1,0 +1,4 @@
+p = 1
+while p <= 64:
+    print(p)
+    p = p * 2

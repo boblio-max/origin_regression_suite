@@ -1,0 +1,3 @@
+print "abc" == "abc"
+print len("hello") == len("world")
+print "a" + "b" == "ab"

@@ -1,0 +1,4 @@
+rate = 3.14
+print(rate)
+print(rate * 2)
+print(rate * 10)

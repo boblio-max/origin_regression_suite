@@ -1,0 +1,6 @@
+let x = 2
+let y = 3
+let z = 4
+print x + y * z
+print (x + y) * z
+print x ** y + z

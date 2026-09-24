@@ -1,0 +1,2 @@
+for n in range(1, 9):
+    print((n * (n + 1)) / 2)

@@ -1,0 +1,4 @@
+const myrate = 3.14159
+let r = 5
+print myrate * r * r
+print 2 * myrate * r

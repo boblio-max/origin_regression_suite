@@ -1,0 +1,12 @@
+let s = 85
+if s >= 90 {
+    print 4
+} elif s >= 80 {
+    print 3
+} elif s >= 70 {
+    print 2
+} elif s >= 60 {
+    print 1
+} else {
+    print 0
+}

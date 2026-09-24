@@ -1,0 +1,36 @@
+name: regression
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this suite
+        uses: actions/checkout@v4
+
+      - name: Check out origin-dev (system under test)
+        uses: actions/checkout@v4
+        with:
+          repository: boblio-max/origin-dev
+          path: origin-dev
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Origin <-> Python conformance suite
+        env:
+          ORIGIN_REPO: ${{ github.workspace }}/origin-dev
+        run: python run_suite.py --verbose --results-json results.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results
+          path: results.json

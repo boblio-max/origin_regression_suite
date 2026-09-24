@@ -1,0 +1,4 @@
+x = 7
+print(not (x == 7))
+print(not (x == 8))
+print(not (x > 10))

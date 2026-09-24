@@ -1,0 +1,6 @@
+let a = 2
+let b = 5
+let c = 3
+let x = 4
+print a * x * x + b * x + c
+print a * 0 + b * 1 + c

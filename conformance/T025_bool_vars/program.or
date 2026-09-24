@@ -1,0 +1,6 @@
+let ok = 1 < 2
+print ok
+let bad = 5 < 3
+print bad
+print ok and not bad
+print ok or bad

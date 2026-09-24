@@ -1,0 +1,4 @@
+print str(42)
+print int("7") * 3
+print float("2.5") + 1
+print int(3.9)

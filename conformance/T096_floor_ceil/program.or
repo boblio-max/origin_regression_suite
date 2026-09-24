@@ -1,0 +1,5 @@
+print floor(3.9)
+print ceil(2.1)
+print floor(0 - 2.3)
+print ceil(0 - 2.3)
+print floor(5.0)

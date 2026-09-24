@@ -1,0 +1,4 @@
+p = 1
+for i in range(0, 10):
+    p *= 2
+print(p)

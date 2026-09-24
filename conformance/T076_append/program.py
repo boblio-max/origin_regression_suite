@@ -1,0 +1,6 @@
+lst = [1, 2]
+lst.append(3)
+lst.append(4)
+print(len(lst))
+for x in lst:
+    print(x)

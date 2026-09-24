@@ -1,0 +1,5 @@
+s = ""
+for i in range(0, 5):
+    s = s + "ab"
+print(s)
+print(len(s))

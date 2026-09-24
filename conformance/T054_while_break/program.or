@@ -1,0 +1,8 @@
+let i = 1
+while true {
+    print i
+    i = i + 1
+    if i > 4 {
+        break
+    }
+}

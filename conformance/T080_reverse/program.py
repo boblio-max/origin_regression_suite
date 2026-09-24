@@ -1,0 +1,4 @@
+lst = [1, 2, 3, 4]
+n = len(lst)
+for i in range(0, n):
+    print(lst[(n - 1) - i])

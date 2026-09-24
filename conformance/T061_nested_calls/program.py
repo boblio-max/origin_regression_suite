@@ -1,0 +1,6 @@
+def mul(a, b):
+    return a * b
+def add(a, b):
+    return a + b
+print(add(mul(2, 3), 4))
+print(mul(add(1, 2), add(3, 4)))
