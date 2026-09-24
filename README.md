@@ -1,7 +1,10 @@
 # Origin Regression Suite
 
+![regression](https://github.com/boblio-max/origin_regression_suite/actions/workflows/regression.yml/badge.svg)
+
 Behavioral regression tests for the [Origin programming language](https://github.com/boblio-max/origin-dev):
-every commit gets an automated check that Origin still behaves like the reference.
+every commit — plus a nightly run against `origin-dev@main` — gets an automated
+check that Origin still behaves like the reference.
 
 The ideal workflow:
 
