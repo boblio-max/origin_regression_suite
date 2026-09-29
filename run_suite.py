@@ -31,8 +31,30 @@ from pathlib import Path
 
 SUITE_ROOT = Path(__file__).resolve().parent
 ORIGIN_REPO = Path(os.environ.get("ORIGIN_REPO", SUITE_ROOT.parent / "origin-dev"))
-ORIGIN_RUNNER = ORIGIN_REPO / "ORIGIN_CODE" / "runners" / "runnerMOD.py"
 CONFORMANCE_DIR = SUITE_ROOT / "conformance"
+
+
+def detect_origin_cmd(repo_root):
+    """Return the CLI argv prefix that runs an Origin program in *repo_root*.
+
+    Supports both known layouts so the same harness works against either SUT:
+
+    - origin-dev (legacy): ``ORIGIN_CODE/runners/runnerMOD.py <file.or>``
+    - origin (v1.7.27+ modular): ``python -m origin <file.or>`` (cwd=repo root)
+    - legacy flat layout: ``runner.py <file.or>`` at the repo root
+    """
+    mod_runner = repo_root / "ORIGIN_CODE" / "runners" / "runnerMOD.py"
+    if mod_runner.exists():
+        return [sys.executable, str(mod_runner)]
+    if (repo_root / "origin" / "runner.py").exists() or (repo_root / "origin" / "__main__.py").exists():
+        return [sys.executable, "-m", "origin"]
+    flat_runner = repo_root / "runner.py"
+    if flat_runner.exists():
+        return [sys.executable, str(flat_runner)]
+    return None
+
+
+ORIGIN_CMD_PREFIX = detect_origin_cmd(ORIGIN_REPO)
 TIMEOUT_SECONDS = int(os.environ.get("ORIGIN_TEST_TIMEOUT", "30"))
 
 # Origin prints diagnostics containing these markers on failure. The runner's
@@ -82,10 +104,10 @@ def run_test(test_dir):
     stdin_path = test_dir / "stdin.txt"
     stdin_text = stdin_path.read_text(encoding="utf-8") if stdin_path.exists() else None
 
-    origin_cmd = [sys.executable, str(ORIGIN_RUNNER), str(or_path)]
+    origin_cmd = ORIGIN_CMD_PREFIX + [str(or_path)]
     py_cmd = [sys.executable, str(py_path)]
 
-    or_out, or_err, or_time, _ = run_cli(origin_cmd, cwd=ORIGIN_REPO)
+    or_out, or_err, or_time, _ = run_cli(origin_cmd, cwd=ORIGIN_REPO, stdin_text=stdin_text)
     py_out, py_err, py_time, py_rc = run_cli(py_cmd, cwd=test_dir, stdin_text=stdin_text)
 
     or_norm, py_norm = normalize(or_out), normalize(py_out)
@@ -120,8 +142,15 @@ def main():
     parser.add_argument("--results-json", metavar="FILE", help="write machine-readable results JSON")
     args = parser.parse_args()
 
-    if not ORIGIN_RUNNER.exists():
-        sys.exit(f"origin runner not found at {ORIGIN_RUNNER} (set ORIGIN_REPO env var)")
+    global ORIGIN_CMD_PREFIX
+    # Re-detect in case ORIGIN_REPO was overridden via env after import.
+    ORIGIN_CMD_PREFIX = detect_origin_cmd(ORIGIN_REPO)
+    if not ORIGIN_CMD_PREFIX:
+        sys.exit(
+            f"origin runner not found in {ORIGIN_REPO} "
+            "(looked for ORIGIN_CODE/runners/runnerMOD.py, origin/runner.py, runner.py; "
+            "set ORIGIN_REPO env var)"
+        )
 
     tests = sorted(p for p in CONFORMANCE_DIR.iterdir() if p.is_dir() and (p / "program.or").exists())
     if args.only:

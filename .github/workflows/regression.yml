@@ -1,12 +1,33 @@
 name: regression
 
+# Runs the Origin <-> Python conformance suite.
+#
+# Triggers:
+#   push / pull_request / workflow_dispatch  - suite-side changes
+#   schedule (nightly)                       - tracks origin@main even with no pushes
+#   repository_dispatch (origin-push)        - immediate run when the `origin`
+#     repo pushes (see origin/.github/workflows/notify-regression.yml, which
+#     fires this event with the new SHA in client_payload).
+#   repository_dispatch (origin-dev-push)    - same for the private origin-dev repo.
+#
+# Email: every run (pass or fail) sends a summary to nikhilmahankali56@gmail.com
+# via Gmail SMTP. Requires repo secrets (see setup below):
+#   MAIL_USERNAME - Gmail address used as sender (e.g. your address)
+#   MAIL_PASSWORD - Gmail *app password* (Google Account > Security > 2-Step
+#     Verification > App passwords), NOT your normal login password.
+#   For origin-push dispatch delivery the `origin` repo additionally needs:
+#   REGRESSION_DISPATCH_TOKEN - a fine-grained PAT with read/write access to
+#     this suite repo's "Actions" (or classic PAT with `repo` + `workflow`).
+
 on:
   push:
   pull_request:
   workflow_dispatch:
   schedule:
-    # Track origin-dev's latest main every night even with no suite-side pushes.
+    # Nightly fallback: track origin's latest main even if dispatch is not configured.
     - cron: "0 5 * * *"
+  repository_dispatch:
+    types: [origin-push, origin-dev-push]
 
 jobs:
   conformance:
@@ -15,15 +36,40 @@ jobs:
       - name: Check out this suite
         uses: actions/checkout@v4
 
-      # origin-dev is private: this uses the read-only deploy key whose public
-      # half lives on origin-dev and whose private half is the
-      # ORIGIN_DEV_SSH_KEY secret of this repo.
+      # --- System under test: origin (public, default) ---------------------
+      # Dispatched runs carry client_payload {sha, ref}; otherwise track main.
+      - name: Check out origin (system under test)
+        if: github.event_name != 'repository_dispatch' || github.event.action == 'origin-push'
+        uses: actions/checkout@v4
+        with:
+          repository: boblio-max/origin
+          path: origin-sut
+          ref: ${{ github.event.client_payload.sha || 'main' }}
+
+      # --- System under test: origin-dev (private, on demand) --------------
+      # origin-dev is private: uses the read-only deploy key whose public half
+      # lives on origin-dev and whose private half is the ORIGIN_DEV_SSH_KEY
+      # secret of this repo.
       - name: Check out origin-dev (system under test)
+        if: github.event_name == 'repository_dispatch' && github.event.action == 'origin-dev-push'
         uses: actions/checkout@v4
         with:
           repository: boblio-max/origin-dev
-          path: origin-dev
+          path: origin-sut
+          ref: ${{ github.event.client_payload.sha || 'main' }}
           ssh-key: ${{ secrets.ORIGIN_DEV_SSH_KEY }}
+
+      - name: Record SUT revision
+        id: sut
+        run: |
+          if [ -d origin-sut ]; then
+            echo "sha=$(git -C origin-sut rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+            echo "full_sha=$(git -C origin-sut rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=unknown" >> "$GITHUB_OUTPUT"
+            echo "full_sha=unknown" >> "$GITHUB_OUTPUT"
+          fi
+          echo "trigger=${{ github.event.action || github.event_name }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,8 +77,9 @@ jobs:
           python-version: "3.12"
 
       - name: Run Origin <-> Python conformance suite
+        id: suite
         env:
-          ORIGIN_REPO: ${{ github.workspace }}/origin-dev
+          ORIGIN_REPO: ${{ github.workspace }}/origin-sut
         run: python run_suite.py --verbose --results-json results.json
 
       - name: Upload results
@@ -41,3 +88,38 @@ jobs:
         with:
           name: conformance-results
           path: results.json
+
+      - name: Summarize results
+        if: always()
+        id: summary
+        run: |
+          if [ -f results.json ]; then
+            python -c "import json; d=json.load(open('results.json')); print(f\"passed={d.get('passed',0)}\"); print(f\"failed={d.get('failed',0)}\")" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=?" >> "$GITHUB_OUTPUT"
+            echo "failed=?" >> "$GITHUB_OUTPUT"
+          fi
+          echo "outcome=${{ steps.suite.outcome }}" >> "$GITHUB_OUTPUT"
+
+      - name: Email results to maintainer
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "[regression ${{ steps.suite.outcome }}] origin@${{ steps.sut.outputs.sha }} — ${{ steps.summary.outputs.passed }} passed, ${{ steps.summary.outputs.failed }} failed"
+          to: nikhilmahankali56@gmail.com
+          from: Origin Regression <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            Origin regression suite finished with outcome: ${{ steps.suite.outcome }}
+
+            SUT:      ${{ steps.sut.outputs.full_sha }} (trigger: ${{ steps.sut.outputs.trigger }})
+            Results:  ${{ steps.summary.outputs.passed }} passed, ${{ steps.summary.outputs.failed }} failed
+            Run:      ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Commit:   ${{ github.event.client_payload.repo || 'boblio-max/origin' }} @ ${{ github.event.client_payload.sha || steps.sut.outputs.full_sha }}
+
+            Full per-test details are in the attached results.json (and the run's conformance-results artifact).
+          attachments: results.json
